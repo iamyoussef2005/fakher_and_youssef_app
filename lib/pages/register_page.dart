@@ -12,54 +12,150 @@ class _RegisterPageState extends State<RegisterPage> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
+  final usernameController = TextEditingController();
 
-  void register() async {
-  final email = emailController.text.trim();
-  final password = passwordController.text.trim();
-  final confirm = confirmPasswordController.text.trim();
+  bool isLoading = false;
 
-  if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('يرجى ملء جميع الحقول')),
-    );
-    return;
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    usernameController.dispose();
+    super.dispose();
   }
 
-  if (password != confirm) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('كلمة المرور غير متطابقة')),
-    );
-    return;
+  Future<void> register() async {
+    final username = usernameController.text.trim();
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+    final confirm = confirmPasswordController.text.trim();
+
+    if (username.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
+      _showMessage('Please fill in all fields');
+      return;
+    }
+
+    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
+      _showMessage('Please enter a valid email');
+      return;
+    }
+
+    if (password != confirm) {
+      _showMessage('Passwords do not match');
+      return;
+    }
+
+    setState(() => isLoading = true);
+    try {
+      final success = await ApiService.register(username, email, password, confirm);
+      if (success) {
+        _showMessage('Account created successfully ✅');
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        _showMessage('Failed to create account ❌');
+      }
+    } catch (e) {
+      print('Register error: $e');
+      _showMessage('An error occurred during registration');
+    } finally {
+      setState(() => isLoading = false);
+    }
   }
 
-  bool success = await ApiService.register(email, password, confirm);
-  if (success) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('تم إنشاء الحساب بنجاح ✅')),
-    );
-    Navigator.pushReplacementNamed(context, '/home');
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('فشل في إنشاء الحساب ❌')),
-    );
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
-}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Create an account')),
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(controller: emailController, decoration: InputDecoration(labelText: 'Email')),
-            TextField(controller: passwordController, decoration: InputDecoration(labelText: 'Password'), obscureText: true),
-            TextField(controller: confirmPasswordController, decoration: InputDecoration(labelText: 'Confirm password'), obscureText: true),
-            SizedBox(height: 20),
-            ElevatedButton(onPressed: register, child: Text('Sign up')),
-          ],
+      backgroundColor: Colors.grey.shade100,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(Icons.person_add_alt_1, size: 80, color: Colors.blueAccent),
+                const SizedBox(height: 16),
+                const Text(
+                  'Create an Account',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                _buildTextField(usernameController, 'Username', Icons.person),
+                const SizedBox(height: 15),
+                _buildTextField(emailController, 'Email', Icons.email),
+                const SizedBox(height: 15),
+                _buildTextField(passwordController, 'Password', Icons.lock, obscure: true),
+                const SizedBox(height: 15),
+                _buildTextField(
+                    confirmPasswordController, 'Confirm Password', Icons.lock_outline,
+                    obscure: true),
+                const SizedBox(height: 25),
+                isLoading
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton.icon(
+                        onPressed: register,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                          backgroundColor: Colors.blueAccent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.check_circle_outline, color: Colors.white),
+                        label: const Text(
+                          'Sign Up',
+                          style: TextStyle(fontSize: 18, color: Colors.white),
+                        ),
+                      ),
+                const SizedBox(height: 20),
+                TextButton(
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                  child: const Text(
+                    'Already have an account? Log in',
+                    style: TextStyle(color: Colors.blueAccent),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon,
+      {bool obscure = false}) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon, color: Colors.blueAccent),
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.grey.shade50,
       ),
     );
   }

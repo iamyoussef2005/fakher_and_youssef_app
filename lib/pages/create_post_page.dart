@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../api_service.dart';
 
-// This widget represents a page for creating a new post.
 class CreatePostPage extends StatefulWidget {
   const CreatePostPage({super.key});
 
@@ -12,89 +11,87 @@ class CreatePostPage extends StatefulWidget {
 }
 
 class _CreatePostPageState extends State<CreatePostPage> {
-  // Controllers for the title and content text fields.
   final contentController = TextEditingController();
   final titleController = TextEditingController();
-
-  // To store the selected image file.
   File? _selectedImage;
-
-  // Image picker instance to access the user's gallery.
   final ImagePicker _picker = ImagePicker();
-
-  // To indicate whether the post is being uploaded (for showing a loading spinner).
   bool isLoading = false;
-
-  // Function to let the user pick an image from the gallery.
+  // pick an image from galleryand store it in _selectedImage
   Future<void> pickImage() async {
-    // Opens the image gallery and waits for user selection.
     final picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
-      // If an image is selected, save it to _selectedImage and refresh the UI.
-      setState(() {
-        _selectedImage = File(picked.path);
-      });
+      setState(() => _selectedImage = File(picked.path));
     }
   }
-
-  // Function to handle the submission of the post.
+  
+  // submit post to the api
   void submitPost() async {
-    // Get the values of title and content and trim extra spaces.
-    final content = contentController.text.trim();
+    final body = contentController.text.trim();
     final title = titleController.text.trim();
 
-    // If either field is empty, show a warning message and stop.
-    if (title.isEmpty || content.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Please fill title and content')));
+    if (body.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please write something before posting')),
+      );
       return;
     }
 
-    // Start showing loading spinner.
     setState(() => isLoading = true);
-    try {
-      // Get the current timestamp in ISO8601 format.
-      final now = DateTime.now().toIso8601String();
 
-      // Call the API service to create a post.
+    try {
+      
       bool success = await ApiService.createPost(
-        content,
-        title: title,
-        imagePath: _selectedImage?.path, // Optional image path.
-        createdAt: now, // Current timestamp.
+        body,
+        title: title.isNotEmpty ? title : null,
+        image: _selectedImage?.path, 
       );
 
-      // If successful, show a success message and go back to the previous page.
       if (success) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Posted!')));
-        Navigator.pop(
-          context,
-          true,
-        ); // Return true so the previous page knows to refresh.
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Post created successfully!')),
+          );
+          Navigator.pop(context, true);
+        }
       } else {
-        // If not successful, show an error message.
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Posting Failed')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to create post.')),
+          );
+        }
       }
     } catch (e) {
-      // Catch any exceptions (e.g., network issues) and print the error.
-      print('create post error: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error happened')));
+      debugPrint('create post error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('An error occurred.')),
+        );
+      }
     } finally {
-      // Whether successful or not, stop showing the loading spinner if the widget is still mounted.
       if (mounted) setState(() => isLoading = false);
     }
   }
 
+  InputDecoration _inputStyle(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: Colors.blueAccent),
+      filled: true,
+      fillColor: Colors.grey[100],
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Colors.blueAccent, width: 1.2),
+      ),
+    );
+  }
+  
+  // dispose controllers
   @override
   void dispose() {
-    // Dispose controllers when the widget is destroyed to free resources.
     contentController.dispose();
     titleController.dispose();
     super.dispose();
@@ -102,58 +99,94 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
   @override
   Widget build(BuildContext context) {
-    // The UI of the Create Post page.
     return Scaffold(
-      appBar: AppBar(title: Text('Create a post')),
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Input field for post title.
-            TextField(
-              controller: titleController,
-              decoration: InputDecoration(labelText: 'Post title'),
-            ),
-            SizedBox(height: 30),
-
-            // Input field for post content.
-            TextField(
-              controller: contentController,
-              decoration: InputDecoration(labelText: 'Post content here'),
-              maxLines: 5, // Allows multiple lines for content text.
-            ),
-            SizedBox(height: 16),
-
-            // If an image is selected, display it with an option to remove it.
-            _selectedImage != null
-                ? Column(
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        title: const Text('Create a Post'),
+        centerTitle: true,
+        backgroundColor: Colors.blue.shade600,
+        elevation: 2,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: _inputStyle('Post Title (optional)', Icons.title),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: contentController,
+                  decoration: _inputStyle('Write your content here', Icons.text_fields),
+                  maxLines: 5,
+                ),
+                const SizedBox(height: 20),
+                if (_selectedImage != null)
+                  Column(
                     children: [
-                      Image.file(
-                        _selectedImage!,
-                        height: 200,
-                        fit: BoxFit.cover, // Scale image to fit width properly.
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          _selectedImage!,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
                       ),
+                      const SizedBox(height: 10),
                       TextButton.icon(
                         onPressed: () => setState(() => _selectedImage = null),
-                        icon: Icon(Icons.close),
-                        label: Text('Remove the photo'),
+                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                        label: const Text(
+                          'Remove Photo',
+                          style: TextStyle(color: Colors.redAccent),
+                        ),
                       ),
                     ],
                   )
-                // If no image selected, show button to pick one.
-                : TextButton.icon(
+                else
+                  OutlinedButton.icon(
                     onPressed: pickImage,
-                    icon: Icon(Icons.image),
-                    label: Text('Choose a pic (optional)'),
+                    icon: const Icon(Icons.image_outlined),
+                    label: const Text('Choose a Picture (optional)'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
-
-            SizedBox(height: 20),
-
-            // If loading, show spinner, else show "Post" button.
-            isLoading
-                ? CircularProgressIndicator()
-                : ElevatedButton(onPressed: submitPost, child: Text('Post')),
-          ],
+                const SizedBox(height: 30),
+                isLoading
+                    ? const CircularProgressIndicator()
+                    : SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: submitPost,
+                          icon: const Icon(Icons.send),
+                          label: const Text('Post'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade600,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+              ],
+            ),
+          ),
         ),
       ),
     );
